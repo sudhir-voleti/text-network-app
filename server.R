@@ -226,6 +226,119 @@ shinyServer(function(input, output,session) {
     }
   })
   
+  dtm_to_download <- reactive({
+    if (is.null(input$file)) { return(NULL)}
+      
+      else{
+        namesList = as.character(read.csv(input$file$datapath)[,1])
+        l1 = duplicated(namesList)
+        l2 = seq(1:sum(l1))
+       # print(l2)
+        namesList_new = paste0(namesList[l1],l2)
+        namesList[l1] = namesList_new
+        
+        data =  as.data.frame(dtm())# select Loyal_Brands_DTM.csv file
+        rownames(data) = namesList  # Assign row names
+        data = as.data.frame(unique(data))
+  }})
+  
+  
+  doc_doc_mat <- reactive({
+                if (is.null(input$file)) { return(NULL)}
+    else{
+      mat = as.matrix((dtm()))  # input dtm here
+      mat1 = mat %*% t(mat)    # build 1 mode term term matrix
+      
+      a = colSums(mat1)  # collect colsums into a vector obj a
+      b = order(-a)     # nice syntax for ordering vector in decr order  
+      mat2 = mat1[b,b]  # 
+      diag(mat2) =  0
+      return(mat2)
+    }
+    
+  })
+  
+  
+  term_term_mat<- reactive({
+                  if (is.null(input$file)) { return(NULL)}
+                  else{
+                    mat = as.matrix((t(dtm())))  # input dtm here
+                    mat1 = mat %*% t(mat)    # build 1 mode term term matrix
+                    
+                    a = colSums(mat1)  # collect colsums into a vector obj a
+                    b = order(-a)     # nice syntax for ordering vector in decr order  
+                    mat2 = mat1[b,b]  # 
+                    mat3 = mat2[1:200,1:200]
+                    diag(mat3) =  0
+                    return(mat3)
+                  }
+  })
+  
+  output$downloadData2 <- downloadHandler(
+    filename = function() { "doc_doc_mat.csv" },
+    content = function(file) {
+      print(2)
+      write.csv(doc_doc_mat(), file, row.names=T)
+      
+      
+    }
+  )
+  
+  
+  output$downloadData3 <- downloadHandler(
+    filename = function() { "term_term_mat.csv" },
+    content = function(file) {
+      print(2)
+      write.csv(term_term_mat(), file, row.names=T)
+      
+      
+    }
+  )
+  
+  output$dtm <- renderTable({if (is.null(input$file)) { return(NULL)}
+    
+                      else{
+                       return(head(dtm_to_download()[,1:10],n = 10))
+                  }
+                  
+                  
+                },rownames = TRUE,digits = 0)
+  
+  
+  output$doc_doc <- renderTable({if (is.null(input$file)) { return(NULL)}
+    
+    else{
+      return(head(doc_doc_mat()[,1:10],n = 10))
+    }
+    
+    
+  },rownames = TRUE,digits = 0)
+  
+  
+  output$term_term <- renderTable({if (is.null(input$file)) { return(NULL)}
+    
+    else{
+      return(head(term_term_mat()[,1:10],n = 10))
+    }
+    
+    
+  },rownames = TRUE,digits = 0)
+  
+  
+  
+  
+  output$downloadData1 <- downloadHandler(
+    filename = function() { "dtm_to_network_an.csv" },
+    content = function(file) {
+      
+      
+        new_dtm <- dtm_to_download()[1:200,1:200]
+        print(2)
+        write.csv(new_dtm, file, row.names=T)
+      
+      
+    }
+  )
   
   
   bi_graph_df <- reactive({ if (is.null(input$file)) { return(NULL) }
@@ -233,7 +346,7 @@ shinyServer(function(input, output,session) {
       namesList = as.character(read.csv(input$file$datapath)[,1])
       l1 = duplicated(namesList)
       l2 = seq(1:sum(l1))
-      print(l2)
+      #print(l2)
       namesList_new = paste0(namesList[l1],l2)
       namesList[l1] = namesList_new
       
@@ -263,7 +376,7 @@ shinyServer(function(input, output,session) {
       # remove columns with sum less than 5
       co2015 = co2015[,colSums(co2015)>input$cutoff]
       co2015 = co2015[sum(co2015)>0,]
-      print(dim(co2015))
+      #print(dim(co2015))
       rownums = nrow(co2015); colnums = ncol(co2015)
       graph1 = graph.incidence(co2015, mode=c("all") ) # create two mode network object
       V(graph1)   # Print Vertices. Based on vertices order change the color scheme in next line of code
