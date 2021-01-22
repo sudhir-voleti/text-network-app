@@ -7,6 +7,16 @@ shinyServer(function(input, output,session) {
   library("igraph")
   library("tm")  
   #---------------------------------------------
+  
+  # sample dataset
+  
+  output$dwnld <- downloadHandler(
+    filename = function() { "B2C_brands_pgp21.csv" },
+    content = function(file) {
+      write.csv(read.csv("data/B2C brands pgp21.csv"), file,row.names = FALSE)
+    }
+  )
+  
   text.clean1 = function(x)                          # text data
   { 
     # x = gsub("[^[:alnum:]['-][\\s]", "-", x)        # replace intra-word space with dash
@@ -54,6 +64,8 @@ shinyServer(function(input, output,session) {
     plot(graph1e, main = network.name, layout=layout.kamada.kawai)
     # plot(graph1e, main = "layout.fruchterman.reingold", layout=layout.fruchterman.reingold)
   }
+  
+  
   distill.cog <- function(dtm1, s, k1, network.name,cex,cex2){
     # s = 5  # no. of seed nodes
     # k1 = 7   # max no. of connections
@@ -100,6 +112,16 @@ shinyServer(function(input, output,session) {
     if (is.null(input$file)) { return(NULL) }
     else{
       Dataset <- read.csv(input$file$datapath ,header=TRUE, sep = ",", stringsAsFactors = F)
+      Dataset[,1] <- str_to_title(Dataset[,1])
+      Dataset[,1] <- make.names(Dataset[,1], unique=TRUE)
+      Dataset[,1] <- tolower(Dataset[,1])
+      Dataset[,1] <- str_replace_all(Dataset[,1],"\\.","_")
+      rownames(Dataset) <- Dataset[,1]
+      
+      
+      rownames(Dataset) <- make.names(Dataset[,1], unique=TRUE)
+      
+      colnames(Dataset) <- make.names(colnames(Dataset),unique=TRUE)
 #      row.names(Dataset) = Dataset[,1]
 #      Dataset = Dataset[,2:ncol(Dataset)]
       return(Dataset)
@@ -213,18 +235,26 @@ shinyServer(function(input, output,session) {
  #   }
  # })
   
-  output$graph3 <- renderPlot({
+  output$graph3 <- renderVisNetwork({
     if (is.null(input$file)) { return(NULL) }
     else{
-  distill.cog(dtm(), input$nodes, input$connection, "Doc-Doc",input$cex,input$cex2)
+      distill.cog.tcm(t(dtm()),mattype = "DTM", k=input$nodes, s=input$connection, title="Doc-Doc",cex=input$cex,cex2 = input$cex2)#,input$cex2)
     }
   })
   
-  output$graph4 <- renderPlot({ if (is.null(input$file)) { return(NULL) }
+  
+  
+  
+  output$graph4 <- renderVisNetwork({ if (is.null(input$file)) { return(NULL) }
     else{
-  distill.cog(t(dtm()),input$nodes, input$connection, "Term-Term",input$cex,input$cex2)
+  #distill.cog(t(dtm()),input$nodes, input$connection, "Term-Term",input$cex,input$cex2)
+      distill.cog.tcm(dtm(),mattype = "DTM", k=input$nodes, s=input$connection, title="Term-Term",cex=input$cex,cex2 = input$cex2)
     }
   })
+  
+  
+  
+  
   
   dtm_to_download <- reactive({
     if (is.null(input$file)) { return(NULL)}
@@ -275,7 +305,7 @@ shinyServer(function(input, output,session) {
   })
   
   output$downloadData2 <- downloadHandler(
-    filename = function() { "doc_doc_mat.csv" },
+    filename = function() { paste(str_split(input$file$name,"\\.")[[1]][1],"_doc_doc_mat.csv",collapse = "") },
     content = function(file) {
       print(2)
       write.csv(doc_doc_mat(), file, row.names=T)
@@ -286,7 +316,7 @@ shinyServer(function(input, output,session) {
   
   
   output$downloadData3 <- downloadHandler(
-    filename = function() { "term_term_mat.csv" },
+    filename = function() { paste(str_split(input$file$name,"\\.")[[1]][1],"_term_term_mat.csv",collapse = "")},
     content = function(file) {
       print(2)
       write.csv(term_term_mat(), file, row.names=T)
@@ -328,7 +358,7 @@ shinyServer(function(input, output,session) {
   
   
   output$downloadData1 <- downloadHandler(
-    filename = function() { "dtm_to_network_an.csv" },
+    filename = function() { paste(str_split(input$file$name,"\\.")[[1]][1],"_dtm_to_network.csv",collapse = "") },
     content = function(file) {
       
       
@@ -369,10 +399,11 @@ shinyServer(function(input, output,session) {
                                         value = floor(max_slider/2),
                                         step = 1)}})
   
-  output$graph5 <- renderPlot({ if (is.null(input$file)) { return(NULL) }
+  output$graph5 <- renderVisNetwork({ if (is.null(input$file)) { return(NULL) }
     else{
       require(igraph)
       co2015 <- bi_graph_df()
+      group=rownames(co2015)
       # remove columns with sum less than 5
       co2015 = co2015[,colSums(co2015)>input$cutoff]
       co2015 = co2015[sum(co2015)>0,]
@@ -381,19 +412,35 @@ shinyServer(function(input, output,session) {
       graph1 = graph.incidence(co2015, mode=c("all") ) # create two mode network object
       V(graph1)   # Print Vertices. Based on vertices order change the color scheme in next line of code
       
-      V(graph1)$color[1:rownums] = rgb(1,0.25,0.75,1)   # Color scheme for fist mode of vertices
-      V(graph1)$color[(rownums+1):(rownums+colnums)] = rgb(0,1,0.5,.5) # Color Scheme for second mode of vertices
-      V(graph1)$label = V(graph1)$name     # made some crap changes
-      V(graph1)$label.color = rgb(0.2,0.2,.9,1)
-      V(graph1)$label.cex = .8
-      V(graph1)$size = 10
-      V(graph1)$frame.color = NA
-      E(graph1)$color = rgb(.25, .25, 0.75, 1)
+      V(graph1)$color[1:rownums] = "pink"   # Color scheme for fist mode of vertices
+      V(graph1)$color[(rownums+1):(rownums+colnums)] = "green" # Color Scheme for second mode of vertices
       
-      plot(graph1, layout=layout.fruchterman.reingold)
+      
+      # V(graph1)$shape[1:rownums] = 10
+      # V(graph1)$shape[(rownums+1):(rownums+colnums)] = 50
+      
+      # V(graph1)$shape[1:rownums] = "triangle"
+      # V(graph1)$color[(rownums+1):(rownums+colnums)] = "circle"
+      
+      V(graph1)$label = V(graph1)$name     # made some crap changes
+      #V(graph1)$label.color = rgb(0.2,0.2,.9,1)
+      V(graph1)$label.cex = .8
+      #V(graph1)$size = 50
+      V(graph1)$frame.color = NA
+      E(graph1)$color = "green"
+      
+      #plot(graph1, layout=layout.fruchterman.reingold)
+      visIgraph(graph1, layout = "layout.fruchterman.reingold", idToLabel = FALSE,physics = FALSE)  
       
       
     }
+    
+    
+    
+    
+    
+    
+    
   })
     
   })
